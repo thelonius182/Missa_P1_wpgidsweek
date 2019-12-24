@@ -29,3 +29,5 @@ vignettes/*.pdf
 .Rproj.user
 Missa_P1_wpgidsweek.Rproj
 config.yaml
+bc.txt
+hw.txt
