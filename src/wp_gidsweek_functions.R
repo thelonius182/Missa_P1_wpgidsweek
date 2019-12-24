@@ -69,7 +69,3 @@ get_cycle <- function(cz_week_start) {
   i_diff <- as.integer(cz_week_start_dt - ref_date_B_cycle) %/% 7L
   if_else(i_diff %% 2 == 0, "B", "A")
 }
-
-# get_cycle("2019-11-28")
-
-
