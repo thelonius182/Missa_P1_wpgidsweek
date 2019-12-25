@@ -6,6 +6,11 @@ library(chron)
 library(stringr)
 library(yaml)
 library(purrr)
+library(futile.logger)
+library(jsonlite)
+
+flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
+flog.info("= = = = = WP-Gidsweek start = = = = =", name = "wpgidsweeklog")
 
 config <- read_yaml("config.yaml")
 
@@ -18,6 +23,10 @@ giva_latest <-
   mutate(latest_run = ymd(latest_run))
 
 current_run_start <- giva_latest$latest_run + ddays(7)
+flog.info("Dit wordt de Gidsweek van %s", 
+          format(current_run_start, "%A %d %B %Y"),
+          name = "wpgidsweeklog")
+
 # cz-week's 168 hours comprise 8 weekdays, not 7 (Thursday AM and PM)
 # but to the schedule-template both Thursdays are the same, as the
 # template is undated.
@@ -74,14 +83,7 @@ cz_slot_key_levels = c(
   "size"
 )
 
-weekday_levels = c("do",
-  "vr",
-  "za",
-  "zo",
-  "ma",
-  "di",
-  "wo"
-)
+weekday_levels = c("do", "vr", "za", "zo", "ma", "di", "wo")
 
 # = = = = = = = = = = = = = = = = = = = = = = = = + = = = = = = = = = -----
 
@@ -227,21 +229,134 @@ cz_week_titles <- cz_week %>%
   filter(cz_slot_key == "titel") %>% 
   anti_join(itunes_repeat_slots)
 
-# + join the lot ------------------------------------------------------------
-broadcasts <- cz_slot_dates %>% 
-  inner_join(cz_week_titles) %>% 
-  inner_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster"))
+# + + get sizes of each program -------------------------------------------
+cz_week_sizes <- cz_week %>% 
+  filter(cz_slot_key == "size") %>% 
+  select(cz_slot_pfx, size = cz_slot_value)
 
-pr_dt <- function(.x) {
-  s_tmp <- format(.x, "%Y-%m-%d_%a%H-%Z%z") %>%
-    str_replace("CES?T", "UTC") %>% 
-    str_sub(1, 22)
+# + + get repeats ---------------------------------------------------------
+cz_week_repeats <- cz_week %>%
+  filter(cz_slot_key == "herhaling") %>%
+  mutate(
+    hh_offset_dag = if_else(cz_slot_value == "tw", 
+                            7L, 
+                            as.integer(str_sub(cz_slot_value, 1, 2))),
+    hh_offset_uur = if_else(cz_slot_value == "tw", 
+                            as.integer(str_sub(cz_slot_pfx, 5, 6)),
+                            as.integer(str_sub(cz_slot_value, 5, 6)))
+  ) %>%
+  select(cz_slot_pfx, hh_offset_dag, hh_offset_uur)
+
+# + join the lot ----------------------------------------------------------
+for (seg1 in 1:1) { # make break-able segment
+
+  # + but test for missing info's first! ------------------------------------
+  na_infos <- cz_week_titles %>% 
+    anti_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>%
+    select(cz_slot_value) %>% distinct
   
-  return(paste0('"', s_tmp, '"'))
+  if (nrow(na_infos) > 0) {
+    na_infos_df <- unite(data = na_infos, col = regel, sep = " ")
+    flog.info("WP-gidsinfo is incompleet. Geen vermelding voor %s\nscript wordt afgebroken.", 
+              na_infos_df, name = "wpgidsweeklog")
+    break
+  }
+  
+  broadcasts <- cz_slot_dates %>% 
+    inner_join(cz_week_titles) %>% 
+    inner_join(cz_week_sizes) %>% 
+    inner_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>% 
+    left_join(tbl_gidsinfo_nl_en, by = c("productie_taak" = "item_NL")) %>% 
+    rename(productie_taak_EN = item_EN) %>% 
+    left_join(tbl_gidsinfo_nl_en, by = c("genre_NL1" = "item_NL")) %>% 
+    rename(genre_EN1 = item_EN) %>% 
+    left_join(tbl_gidsinfo_nl_en, by = c("genre_NL2" = "item_NL")) %>% 
+    rename(genre_EN2 = item_EN) %>% 
+    mutate(json_start = date_time,
+           json_stop = date_time + dminutes(as.integer(size))) %>% 
+    select(date_time,
+           json_start,
+           json_stop,
+           titel_NL,
+           titel_EN,
+           genre_NL1,
+           genre_EN1,
+           genre_NL2,
+           genre_EN2,
+           intro_NL,
+           intro_EN,
+           productie_taak,
+           productie_taak_EN,
+           productie_mdw
+    )
+    
+  
+  
+  
+  bc_subset <- broadcasts %>% filter(row_number() < 10) 
+  
+  bc_subset_as_json <- bc_subset %>% 
+    mutate(date_time = fmt_utc_ts(date_time),
+           json_start = format(json_start, "%Y-%m-%d %H:%M"),
+           json_stop = format(json_stop, "%Y-%m-%d %H:%M")
+    ) %>% 
+    toJSON() %>% 
+    tibble::enframe(name = NULL) %>%
+    mutate(value = str_replace_all(string = value,
+                                   pattern = "titel_NL",
+                                   replacement = "titel-nl"),
+           value = str_replace_all(string = value,
+                                   pattern = "titel_EN",
+                                   replacement = "titel-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "genre_NL1",
+                                   replacement = "genre-1-nl"),
+           value = str_replace_all(string = value,
+                                   pattern = "genre_NL2",
+                                   replacement = "genre-2-nl"),
+           value = str_replace_all(string = value,
+                                   pattern = "genre_EN1",
+                                   replacement = "genre-1-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "genre_EN2",
+                                   replacement = "genre-2-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "intro_NL",
+                                   replacement = "std.samenvatting-nl"),
+           value = str_replace_all(string = value,
+                                   pattern = "intro_EN",
+                                   replacement = "std.samenvatting-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "productie_taak",
+                                   replacement = "productie-1-taak-nl"),
+           value = str_replace_all(string = value,
+                                   pattern = "productie_taak_EN",
+                                   replacement = "productie-1-taak-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "productie_mdw",
+                                   replacement = "productie-1-mdw"),
+           value = str_replace_all(string = value,
+                                   pattern = "json_",
+                                   replacement = ""),
+           value = str_replace_all(string = value,
+                                   pattern = "[{]",
+                                   replacement = ""),
+           value = str_replace_all(string = value,
+                                   pattern = "\"date_time\":",
+                                   replacement = ""),
+           value = str_replace_all(string = value,
+                                   pattern = "\",\"start\":",
+                                   replacement = "\":{\"start\":"),
+           value = str_replace_all(string = value,
+                                   pattern = "\\[",
+                                   replacement = "{"),
+           value = str_replace_all(string = value,
+                                   pattern = "]",
+                                   replacement = "}")
+    ) %>%
+    as.character()
+  
+  cz_con <- file("json_t1.json", "w", encoding = "UTF-8")
+  writeLines(text = bc_subset_as_json, con = cz_con)
+  close(cz_con)
 }
-
-bc_dates <- map(broadcasts$date_time, pr_dt) %>% as.character
-
-
-writeLines(text = bc_dates, con = file("bc.txt", "w", encoding = "UTF-8"))
-close(con)

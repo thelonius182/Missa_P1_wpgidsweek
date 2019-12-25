@@ -64,8 +64,14 @@ prep_week <- function(week_nr) {
 
 get_cycle <- function(cz_week_start) {
   # test: cz_week_start <- "2019-11-21"
-  # cz_week_start_dt <- ymd(cz_week_start)
   ref_date_B_cycle <- ymd("2019-10-17")
-  i_diff <- as.integer(cz_week_start_dt - ref_date_B_cycle) %/% 7L
+  i_diff <- as.integer(cz_week_start - ref_date_B_cycle) %/% 7L
   if_else(i_diff %% 2 == 0, "B", "A")
 }
+
+fmt_utc_ts <- function(some_date) {
+  format(some_date, "%Y-%m-%d_%a%H-%Z%z") %>%
+    str_replace("CES?T", "UTC") %>%
+    str_sub(1, 22)
+}
+
