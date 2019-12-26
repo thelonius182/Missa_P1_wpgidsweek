@@ -219,38 +219,40 @@ tbl_gidsinfo_nl_en <- readRDS(paste0(config$giva.rds.dir, "gidsinfo_nl_en.RDS"))
 #   This week's iTunes-titles where cycle says "repeat", should be excluded 
 #   because they were uploaded before (originals + repeats upload together)
 
-# + + get iTunes-repeats --------------------------------------------------
+#+ get iTunes-repeats --------------------------------------------------
 itunes_repeat_slots <- cz_week %>% 
   filter(cz_slot_key == paste0("product ", cycle) & cz_slot_value == "h") %>% 
   select(cz_slot_pfx)
 
-# + + join on 'titel', exclude on itunes-repeat ---------------------------
+#+... join on 'titel', exclude on itunes-repeat ----
 cz_week_titles <- cz_week %>% 
   filter(cz_slot_key == "titel") %>% 
   anti_join(itunes_repeat_slots)
 
-# + + get sizes of each program -------------------------------------------
+#+ get sizes of each program ----
 cz_week_sizes <- cz_week %>% 
   filter(cz_slot_key == "size") %>% 
   select(cz_slot_pfx, size = cz_slot_value)
 
-# + + get repeats ---------------------------------------------------------
-cz_week_repeats <- cz_week %>%
-  filter(cz_slot_key == "herhaling") %>%
-  mutate(
-    hh_offset_dag = if_else(cz_slot_value == "tw", 
-                            7L, 
-                            as.integer(str_sub(cz_slot_value, 1, 2))),
-    hh_offset_uur = if_else(cz_slot_value == "tw", 
-                            as.integer(str_sub(cz_slot_pfx, 5, 6)),
-                            as.integer(str_sub(cz_slot_value, 5, 6)))
-  ) %>%
-  select(cz_slot_pfx, hh_offset_dag, hh_offset_uur)
+#+ get regular repeats ----
+suppressWarnings(
+  cz_week_repeats <- cz_week %>%
+    filter(cz_slot_key == "herhaling") %>%
+    mutate(
+      hh_offset_dag = if_else(cz_slot_value == "tw", 
+                              7L, 
+                              as.integer(str_sub(cz_slot_value, 1, 2))),
+      hh_offset_uur = if_else(cz_slot_value == "tw", 
+                              as.integer(str_sub(cz_slot_pfx, 5, 6)),
+                              as.integer(str_sub(cz_slot_value, 5, 6)))
+    ) %>%
+    select(cz_slot_pfx, hh_offset_dag, hh_offset_uur) 
+)
 
-# + join the lot ----------------------------------------------------------
+# + join the lot ----
 for (seg1 in 1:1) { # make break-able segment
 
-  # + but test for missing info's first! ------------------------------------
+  #+... but test for missing info's first! ------------------------------------
   na_infos <- cz_week_titles %>% 
     anti_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>%
     select(cz_slot_value) %>% distinct
@@ -262,9 +264,10 @@ for (seg1 in 1:1) { # make break-able segment
     break
   }
   
-  broadcasts <- cz_slot_dates %>% 
+  broadcasts.I <- cz_slot_dates %>% 
     inner_join(cz_week_titles) %>% 
     inner_join(cz_week_sizes) %>% 
+    left_join(cz_week_repeats) %>% 
     inner_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>% 
     left_join(tbl_gidsinfo_nl_en, by = c("productie_taak" = "item_NL")) %>% 
     rename(productie_taak_EN = item_EN) %>% 
@@ -277,6 +280,9 @@ for (seg1 in 1:1) { # make break-able segment
     select(date_time,
            json_start,
            json_stop,
+           hh_offset_dag,
+           hh_offset_uur,
+           size,
            titel_NL,
            titel_EN,
            genre_NL1,
@@ -289,14 +295,67 @@ for (seg1 in 1:1) { # make break-able segment
            productie_taak_EN,
            productie_mdw
     )
+  
+  broadcasts_orig <- broadcasts.I %>% 
+    select(-hh_offset_dag, -hh_offset_uur, -size)
+
+  broadcasts_repeat.I <- broadcasts.I %>% 
+    filter(!is.na(hh_offset_dag)) %>% 
+    mutate(json_start = json_start + ddays(as.integer(hh_offset_dag)))
+
+  hour(broadcasts_repeat.I$json_start) <- broadcasts_repeat.I$hh_offset_uur
+
+  broadcasts_repeat.II <- broadcasts_repeat.I %>% 
+    mutate(json_stop = json_start + dminutes(as.integer(size)))
+  
+  broadcasts_repeat <- broadcasts_repeat.II %>% 
+    select(-hh_offset_dag, -hh_offset_uur, -size) 
+
+  broadcasts_repeat$titel_NL <- NA_character_
+  broadcasts_repeat$titel_EN <- NA_character_
+  broadcasts_repeat$genre_NL1 <- NA_character_
+  broadcasts_repeat$genre_NL2 <- NA_character_
+  broadcasts_repeat$genre_EN1 <- NA_character_
+  broadcasts_repeat$genre_EN2 <- NA_character_
+  broadcasts_repeat$intro_NL <- NA_character_
+  broadcasts_repeat$intro_EN <- NA_character_
+  broadcasts_repeat$productie_taak <- NA_character_
+  broadcasts_repeat$productie_taak_EN <- NA_character_
+  broadcasts_repeat$productie_mdw <- NA_character_
+
+  broadcasts.II <- bind_rows(broadcasts_orig, broadcasts_repeat) %>% 
+    arrange(date_time)
+  
+  broadcasts.III <- broadcasts.II %>% 
+    mutate(herhalingVan = if_else(is.na(titel_NL), 
+                                  format(date_time,"%Y-%m-%d %H:%M"),
+                                  NA_character_),
+           # if_else doesn't play nicely with dates set to NA
+           # herhalingVan = replace(x = herhalingVan, !is.na(titel_NL), NA),
+           # nv_ts: name/value-pair timestamp, in front of pgm's nv-pair set
+           nv_ts = if_else(!is.na(titel_NL), date_time, json_start)
+    ) %>% 
+    select(nv_ts,
+           json_start,
+           json_stop,
+           herhalingVan,
+           titel_NL,
+           titel_EN,
+           genre_NL1,
+           genre_EN1,
+           genre_NL2,
+           genre_EN2,
+           intro_NL,
+           intro_EN,
+           productie_taak,
+           productie_taak_EN,
+           productie_mdw
+    )
+  
     
-  
-  
-  
-  bc_subset <- broadcasts %>% filter(row_number() < 10) 
-  
-  bc_subset_as_json <- bc_subset %>% 
-    mutate(date_time = fmt_utc_ts(date_time),
+  # bc_subset <- broadcasts.III %>% filter(row_number() < 10) 
+  broadcasts <- broadcasts.III %>%
+    mutate(nv_ts = fmt_utc_ts(nv_ts),
            json_start = format(json_start, "%Y-%m-%d %H:%M"),
            json_stop = format(json_stop, "%Y-%m-%d %H:%M")
     ) %>% 
@@ -327,11 +386,11 @@ for (seg1 in 1:1) { # make break-able segment
                                    pattern = "intro_EN",
                                    replacement = "std.samenvatting-en"),
            value = str_replace_all(string = value,
-                                   pattern = "productie_taak",
-                                   replacement = "productie-1-taak-nl"),
-           value = str_replace_all(string = value,
                                    pattern = "productie_taak_EN",
                                    replacement = "productie-1-taak-en"),
+           value = str_replace_all(string = value,
+                                   pattern = "productie_taak",
+                                   replacement = "productie-1-taak-nl"),
            value = str_replace_all(string = value,
                                    pattern = "productie_mdw",
                                    replacement = "productie-1-mdw"),
@@ -342,7 +401,7 @@ for (seg1 in 1:1) { # make break-able segment
                                    pattern = "[{]",
                                    replacement = ""),
            value = str_replace_all(string = value,
-                                   pattern = "\"date_time\":",
+                                   pattern = "\"nv_ts\":",
                                    replacement = ""),
            value = str_replace_all(string = value,
                                    pattern = "\",\"start\":",
@@ -355,8 +414,16 @@ for (seg1 in 1:1) { # make break-able segment
                                    replacement = "}")
     ) %>%
     as.character()
-  
-  cz_con <- file("json_t1.json", "w", encoding = "UTF-8")
-  writeLines(text = bc_subset_as_json, con = cz_con)
+
+  cz_json_file <- paste0(config$giva.output.dir, 
+                         "gidsteksten_",
+                         format(now(), "%Y%m%d_%H%M"),
+                         ".json") %>% 
+    str_replace_all("/", "\\\\")
+  cz_con <- file(cz_json_file, "w", encoding = "UTF-8")
+  writeLines(text = broadcasts, con = cz_con)
   close(cz_con)
+  
+  rm(broadcasts_orig, broadcasts_repeat, broadcasts_repeat.I, broadcasts_repeat.II,
+     broadcasts.I, broadcasts.II, broadcasts.III)
 }
