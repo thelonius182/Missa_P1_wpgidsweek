@@ -43,6 +43,9 @@ write.csv2(
   row.names = F
 )
 
+source("src/get_google_czdata.R")
+flog.info("Google-data ingelezen", name = "wpgidsweeklog")
+
 # create time series ------------------------------------------------------
 cz_slot_days <- seq(from = current_run_start, to = current_run_stop, by = "days")
 cz_slot_hours <- seq(0, 23, by = 1)
@@ -68,7 +71,7 @@ cz_slot_dates_raw <- as.data.frame(cz_slot_dates) %>%
   arrange(date_time)
 
 # read schedule template --------------------------------------------------
-tbl_zenderschema <- readRDS(paste0(config$giva.rds.dir, "zenderschema.RDS"))
+# tbl_zenderschema <- readRDS(paste0(config$giva.rds.dir, "zenderschema.RDS"))
 
 # create factor levels ----------------------------------------------------
 cz_slot_key_levels = c(
@@ -212,8 +215,8 @@ rm(cz_slot_dates_raw)
 cycle <- get_cycle(current_run_start)
 
 # + get gidsinfo ----------------------------------------------------------
-tbl_gidsinfo <- readRDS(paste0(config$giva.rds.dir, "gidsinfo.RDS"))
-tbl_gidsinfo_nl_en <- readRDS(paste0(config$giva.rds.dir, "gidsinfo_nl_en.RDS"))
+# tbl_gidsinfo <- readRDS(paste0(config$giva.rds.dir, "gidsinfo.RDS"))
+# tbl_gidsinfo_nl_en <- readRDS(paste0(config$giva.rds.dir, "gidsinfo_nl_en.RDS"))
 
 # + exclude this week's repeating broadcasts ------------------------------
 #   This week's iTunes-titles where cycle says "repeat", should be excluded 
@@ -254,7 +257,7 @@ for (seg1 in 1:1) { # make break-able segment
 
   #+... but test for missing info's first! ------------------------------------
   na_infos <- cz_week_titles %>% 
-    anti_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>%
+    anti_join(tbl_wpgidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>%
     select(cz_slot_value) %>% distinct
   
   if (nrow(na_infos) > 0) {
@@ -268,12 +271,12 @@ for (seg1 in 1:1) { # make break-able segment
     inner_join(cz_week_titles) %>% 
     inner_join(cz_week_sizes) %>% 
     left_join(cz_week_repeats) %>% 
-    inner_join(tbl_gidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>% 
-    left_join(tbl_gidsinfo_nl_en, by = c("productie_taak" = "item_NL")) %>% 
+    inner_join(tbl_wpgidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>% 
+    left_join(tbl_wpgidsinfo_nl_en, by = c("productie_taak" = "item_NL")) %>% 
     rename(productie_taak_EN = item_EN) %>% 
-    left_join(tbl_gidsinfo_nl_en, by = c("genre_NL1" = "item_NL")) %>% 
+    left_join(tbl_wpgidsinfo_nl_en, by = c("genre_NL1" = "item_NL")) %>% 
     rename(genre_EN1 = item_EN) %>% 
-    left_join(tbl_gidsinfo_nl_en, by = c("genre_NL2" = "item_NL")) %>% 
+    left_join(tbl_wpgidsinfo_nl_en, by = c("genre_NL2" = "item_NL")) %>% 
     rename(genre_EN2 = item_EN) %>% 
     mutate(json_start = date_time,
            json_stop = date_time + dminutes(as.integer(size))) %>% 
@@ -417,9 +420,10 @@ for (seg1 in 1:1) { # make break-able segment
 
   cz_json_file <- paste0(config$giva.output.dir, 
                          "gidsteksten_",
-                         format(now(), "%Y%m%d_%H%M"),
+                         format(current_run_start, "%Y%m%d"),
                          ".json") %>% 
     str_replace_all("/", "\\\\")
+  
   cz_con <- file(cz_json_file, "w", encoding = "UTF-8")
   writeLines(text = broadcasts, con = cz_con)
   close(cz_con)
