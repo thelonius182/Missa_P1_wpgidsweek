@@ -2,9 +2,10 @@ library(googledrive)
 library(keyring)
 library(readxl)
 library(yaml)
+library(gargle)
 
 cz_extract_sheet <- function(ss_name, sheet_name) {
-  read_xlsx(ss_name,
+  readxl::read_xlsx(ss_name,
             sheet = sheet_name,
             .name_repair = ~ ifelse(nzchar(.x), .x, LETTERS[seq_along(.x)]))
 }
