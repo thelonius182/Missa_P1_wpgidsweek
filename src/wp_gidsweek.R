@@ -8,6 +8,7 @@ library(yaml)
 library(purrr)
 library(futile.logger)
 library(jsonlite)
+library(readr)
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
 flog.info("= = = = = WP-Gidsweek start = = = = =", name = "wpgidsweeklog")
@@ -266,6 +267,12 @@ for (seg1 in 1:1) { # make break-able segment
               na_infos_df, name = "wpgidsweeklog")
     break
   }
+  
+  nipperstudio_week <- cz_slot_dates %>% 
+    inner_join(cz_week_titles) %>% 
+    inner_join(cz_week_sizes)
+  
+  write_rds(x = nipperstudio_week, file = "C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
   
   broadcasts.I <- cz_slot_dates %>% 
     inner_join(cz_week_titles) %>% 
