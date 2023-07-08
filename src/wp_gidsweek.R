@@ -1,14 +1,5 @@
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(magrittr)
-library(chron)
-library(stringr)
-library(yaml)
-library(purrr)
-library(futile.logger)
-library(jsonlite)
-library(readr)
+pacman::p_load(dplyr, tidyr, lubridate, magrittr, chron, stringr, 
+               yaml, purrr, futile.logger, jsonlite, readr)
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
 flog.info("= = = = = WP-Gidsweek start = = = = =", name = "wpgidsweeklog")
@@ -268,9 +259,12 @@ for (seg1 in 1:1) { # make break-able segment
     break
   }
   
+  nipperstudio_week_his <- read_rds("C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
+  
   nipperstudio_week <- cz_slot_dates %>% 
     inner_join(cz_week_titles) %>% 
-    inner_join(cz_week_sizes)
+    inner_join(cz_week_sizes) %>% 
+    bind_rows(nipperstudio_week_his) %>% distinct() %>% arrange(date_time)
   
   write_rds(x = nipperstudio_week, file = "C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
   
