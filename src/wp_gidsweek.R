@@ -259,6 +259,7 @@ for (seg1 in 1:1) { # make break-able segment
     break
   }
   
+  # + save for NS ----
   nipperstudio_week_his <- read_rds("C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
   
   nipperstudio_week <- cz_slot_dates %>% 
@@ -425,6 +426,7 @@ for (seg1 in 1:1) { # make break-able segment
                          ".json") %>% 
     str_replace_all("/", "\\\\")
   
+  # write json ----
   cz_con <- file(cz_json_file, "w", encoding = "UTF-8")
   writeLines(text = broadcasts, con = cz_con)
   close(cz_con)
