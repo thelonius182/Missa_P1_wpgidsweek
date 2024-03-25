@@ -75,3 +75,16 @@ fmt_utc_ts <- function(some_date) {
     str_sub(1, 22)
 }
 
+
+bc2json <- function(pm_tib_json) {
+  
+  # Convert tibble to a list of named lists
+  list_json <- lapply(1:nrow(pm_tib_json), function(i1) {
+    as.list(pm_tib_json[i1, -1])
+  })
+  
+  # set obj_name as the key
+  names(list_json) <- pm_tib_json$obj_name
+  
+  toJSON(list_json, pretty = TRUE, auto_unbox = T)
+}
