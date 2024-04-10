@@ -88,3 +88,84 @@ bc2json <- function(pm_tib_json) {
   
   toJSON(list_json, pretty = TRUE, auto_unbox = T)
 }
+
+start_of_week_pls <- function(arg_ts = now(tz = "Europe/Amsterdam")) {
+  
+  # adjust ts when running this on a Thursday after 13:00
+  if (wday(arg_ts, week_start = 1, label = T) == "do" && hour(arg_ts) >= 13) {
+    arg_ts <- arg_ts + days(1)
+  }
+  
+  # get first Thursday 13:00 after arg_ts
+  hour(arg_ts) <- 0
+  minute(arg_ts) <- 0
+  second(arg_ts) <- 0
+  while (wday(arg_ts, week_start = 1, label = T) != "do") {
+    arg_ts <- arg_ts + days(1)
+  }
+  
+  tmp_format <- stamp("1969-07-20 17:18:19", orders = "%Y-%m0-%d %H:%M:%S", quiet = T)
+  tmp_format(arg_ts + hours(13))
+}
+
+get_wp_conn <- function(pm_db_type = "prd") {
+  
+  # sqlstmt <- "show variables like 'character_set_client'"
+  # result <- dbGetQuery(conn = wp_conn, statement = sqlstmt)
+  
+  if (pm_db_type == "prd") {
+    db_host <- key_get(service = paste0("sql-wp", pm_db_type, "_host"))
+    db_user <- key_get(service = paste0("sql-wp", pm_db_type, "_user"))
+    db_password <- key_get(service = paste0("sql-wp", pm_db_type, "_pwd"))
+    db_name <- key_get(service = paste0("sql-wp", pm_db_type, "_db"))
+  } else {
+    woj_gids_creds_dev <- read_rds(config$db_dev_creds)
+    db_host <- woj_gids_creds_dev$db_host
+    db_user <- woj_gids_creds_dev$db_user
+    db_password <- woj_gids_creds_dev$db_password
+    db_name <- woj_gids_creds_dev$db_name
+  }
+  
+  db_port <- 3306
+  # flog.appender(appender.file("/Users/nipper/Logs/nipper.log"), name = "nipperlog")
+  
+  grh_conn <- tryCatch( 
+    {
+      dbConnect(drv = MySQL(), user = db_user, password = db_password,
+                dbname = db_name, host = db_host, port = db_port)
+    },
+    error = function(cond) {
+      cat("Wordpress database connection failed (dev: is PuTTY running?)")
+      # flog.error("Wordpress database onbereikbaar (dev: check PuTTY)", name = "nipperlog")
+      return("connection-error")
+    }
+  )
+  
+  return(grh_conn)
+}
+
+
+
+start_of_week_gids_universe <- function() {
+
+  wp_conn <- get_wp_conn()
+  
+  if (typeof(wp_conn) != "S4") {
+    stop("db-connection failed")
+  }
+  
+  # qry <- "select DATE_FORMAT(max(post_date), '%Y-%m-%d %a %H:%i') AS ts_latest_post
+  qry <- "select max(post_date) as max_post_date_chr
+          from wp_posts
+          where post_date > '2024-03-01' 
+            and DAYOFWEEK(post_date) = 5 
+            and hour(post_date) = 13 
+            and post_type = 'programma'
+          ;"
+  latest_post <- dbGetQuery(wp_conn, qry)
+  dbDisconnect(wp_conn)
+  
+  start_of_week <- ymd_hms(latest_post$max_post_date_chr, quiet = T) + days(7)
+  tmp_format <- stamp("1969-07-20", orders = "%Y-%m-%d", quiet = T)
+  tmp_format(start_of_week)
+}

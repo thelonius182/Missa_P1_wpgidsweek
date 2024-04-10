@@ -1,30 +1,21 @@
-pacman::p_load(dplyr, tidyr, lubridate, magrittr, chron, stringr, fs,
-               yaml, purrr, futile.logger, jsonlite, readr)
-
-flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
-flog.info("= = = = = WP-Gidsweek start (v2, 2023-03-25 20:16) = = = = =", name = "wpgidsweeklog")
-
+pacman::p_load(dplyr, tidyr, lubridate, magrittr, stringr, fs, keyring,
+               RMySQL, yaml, purrr, futile.logger, jsonlite, readr)
+source("src/wp_gidsweek_functions.R")
 config <- read_yaml("config.yaml")
 
-# Set new first day of gidsweek -------------------------------------------
-# giva_latest_home <- "C:/cz_salsa/config/giva_start.txt"
-# giva_latest <-
-#   read.csv(giva_latest_home,
-#            sep = "",
-#            stringsAsFactors = FALSE) %>%
-#   mutate(latest_run = ymd(latest_run))
-# 
-# current_run_start <- giva_latest$latest_run + days(7)
+flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
+flog.info("= = = = = WP-Gidsweek (script version 2024-04-10 19:17) = = = = =", name = "wpgidsweeklog")
 
 # cz-week's 168 hours comprise 8 weekdays, not 7 (Thursday AM and PM)
 # but to the schedule-template both Thursdays are the same, as the
 # template is undated.
 # Both Thursday parts will separate when the schedule gets 'calendarized'
-current_run_start <- ymd("2024-04-11")
-current_run_stop <- current_run_start + ddays(7)
-flog.info("Dit wordt de Gidsweek voor WPDEV3 van %s",
-          format(current_run_start, "%A %d %B %Y"),
-          name = "wpgidsweeklog")
+current_run_start <- ymd(start_of_week_gids_universe(), quiet = T)
+current_run_stop <- current_run_start + days(7)
+log_date <- format(current_run_start, "%e %B %Y") |> str_trim()
+log_msg <- sprintf("Dit wordt de Gidsweek voor Universe Live vanaf donderdag %s 13:00",
+                   log_date)
+flog.info(log_msg, name = "wpgidsweeklog")
 
 # + remember this for next time ----
 # giva_latest %<>% mutate(latest_run = current_run_start)
@@ -41,7 +32,7 @@ flog.info("Google-data ingelezen", name = "wpgidsweeklog")
 # create time series ------------------------------------------------------
 cz_slot_days <- seq(from = current_run_start, to = current_run_stop, by = "days")
 cz_slot_hours <- seq(0, 23, by = 1)
-cz_slot_dates <- merge(cz_slot_days, chron(time = paste(cz_slot_hours, ":", 0, ":", 0)))
+cz_slot_dates <- merge(cz_slot_days, chron::chron(time = paste(cz_slot_hours, ":", 0, ":", 0)))
 colnames(cz_slot_dates) <- c("slot_date", "slot_time")
 cz_slot_dates$date_time <- as.POSIXct(paste(cz_slot_dates$slot_date, cz_slot_dates$slot_time), "GMT")
 row.names(cz_slot_dates) <- NULL
@@ -159,8 +150,6 @@ rm(week_0_init, week_0_long1, week_0_long2, week_temp)
 
 # prep week-1/5 (days 1-7/8-14/... of month) ------------------------------
 # no matter which weekday comes first!
-
-source("src/wp_gidsweek_functions.R")
 
 week_1 <-  prep_week("1")
 week_2 <-  prep_week("2")
@@ -419,4 +408,4 @@ for (seg1 in 1:1) { # make break-able segment
              append = F)
 }
 
-flog.info("= = = = = = = = = = = STOP = = = = = = = = = = = = = = = = =", name = "wpgidsweeklog")
+flog.info("= = = = = = = = = = = = = FIN = = = = = = = = = = = = = = = = = =", name = "wpgidsweeklog")
