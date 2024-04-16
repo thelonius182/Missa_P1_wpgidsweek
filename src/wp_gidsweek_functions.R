@@ -155,17 +155,23 @@ start_of_week_gids_universe <- function() {
   }
   
   # qry <- "select DATE_FORMAT(max(post_date), '%Y-%m-%d %a %H:%i') AS ts_latest_post
-  qry <- "select max(post_date) as max_post_date_chr
-          from wp_posts
-          where post_date > '2024-03-01' 
-            and DAYOFWEEK(post_date) = 5 
-            and hour(post_date) = 13 
-            and post_type = 'programma'
-          ;"
-  latest_post <- dbGetQuery(wp_conn, qry)
+
+  qry <- "
+select max(po1.post_date) as ymd_post
+from wp_posts po1
+    left join wp_postmeta pm1 on pm1.post_id = po1.id
+where po1.post_date > '2024-03-01' 
+  and DAYOFWEEK(po1.post_date) = 5 
+  and hour(po1.post_date) = 13 
+  and po1.post_type = 'programma'
+  and pm1.meta_key = 'pr_metadata_orig'
+  and pm1.meta_value = ''
+;"
+  
+  latest_post <- dbGetQuery(wp_conn, qry) |> ymd_hms(quiet = T) 
   dbDisconnect(wp_conn)
   
-  start_of_week <- ymd_hms(latest_post$max_post_date_chr, quiet = T) + days(7)
+  start_of_week <- latest_post + days(7)
   tmp_format <- stamp("1969-07-20", orders = "%Y-%m-%d", quiet = T)
   tmp_format(start_of_week)
 }
