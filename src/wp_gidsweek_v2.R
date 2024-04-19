@@ -4,27 +4,19 @@ source("src/wp_gidsweek_functions.R")
 config <- read_yaml("config.yaml")
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
-flog.info("= = = = = WP-Gidsweek (script version 2024-04-10 19:17) = = = = =", name = "wpgidsweeklog")
-
+flog.info("= = = = = WP-Gidsweek (script version 2024-04-19 20:38) = = = = = = = = = =", 
+          name = "wpgidsweeklog")
+ 
 # cz-week's 168 hours comprise 8 weekdays, not 7 (Thursday AM and PM)
 # but to the schedule-template both Thursdays are the same, as the
 # template is undated.
 # Both Thursday parts will separate when the schedule gets 'calendarized'
-current_run_start <- ymd(start_of_week_gids_universe(), quiet = T)
+current_run_start <- ymd(start_new_czweek_universe(), quiet = T)
 current_run_stop <- current_run_start + days(7)
 log_date <- format(current_run_start, "%e %B %Y") |> str_trim()
-log_msg <- sprintf("Dit wordt de Gidsweek voor Universe Live vanaf donderdag %s 13:00",
+log_msg <- sprintf("Dit wordt de Gidsweek voor Universe Live vanaf donderdag %s, 13:00",
                    log_date)
 flog.info(log_msg, name = "wpgidsweeklog")
-
-# + remember this for next time ----
-# giva_latest %<>% mutate(latest_run = current_run_start)
-# write.csv2(
-#   x = giva_latest,
-#   file = giva_latest_home,
-#   quote = F,
-#   row.names = F
-# )
 
 source("src/get_google_czdata.R")
 flog.info("Google-data ingelezen", name = "wpgidsweeklog")
@@ -238,14 +230,14 @@ for (seg1 in 1:1) { # make break-able segment
   }
   
   # + save for NS ----
-  # nipperstudio_week_his <- read_rds("C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
-  # 
-  # nipperstudio_week <- cz_slot_dates %>% 
-  #   inner_join(cz_week_titles) %>% 
-  #   inner_join(cz_week_sizes) %>% 
-  #   bind_rows(nipperstudio_week_his) %>% distinct() %>% arrange(date_time)
-  # 
-  # write_rds(x = nipperstudio_week, file = "C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
+  nipperstudio_week_his <- read_rds("C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
+
+  nipperstudio_week <- cz_slot_dates %>%
+    inner_join(cz_week_titles) %>%
+    inner_join(cz_week_sizes) %>%
+    bind_rows(nipperstudio_week_his) %>% distinct() %>% arrange(date_time)
+
+  write_rds(x = nipperstudio_week, file = "C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
   
   broadcasts.I <- cz_slot_dates %>% 
     inner_join(cz_week_titles) %>% 
@@ -408,4 +400,5 @@ for (seg1 in 1:1) { # make break-able segment
              append = F)
 }
 
-flog.info("= = = = = = = = = = = = = FIN = = = = = = = = = = = = = = = = = =", name = "wpgidsweeklog")
+flog.info("= = = = = = = = = = = = = FIN = = = = = = = = = = = = = = = = = = = = = = =", 
+          name = "wpgidsweeklog")

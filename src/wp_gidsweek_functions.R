@@ -146,32 +146,43 @@ get_wp_conn <- function(pm_db_type = "prd") {
 
 
 
-start_of_week_gids_universe <- function() {
+start_new_czweek_universe <- function() {
 
   wp_conn <- get_wp_conn()
   
   if (typeof(wp_conn) != "S4") {
     stop("db-connection failed")
   }
-  
-  # qry <- "select DATE_FORMAT(max(post_date), '%Y-%m-%d %a %H:%i') AS ts_latest_post
 
-  qry <- "
-select max(po1.post_date) as ymd_post
-from wp_posts po1
-    left join wp_postmeta pm1 on pm1.post_id = po1.id
-where po1.post_date > '2024-03-01' 
-  and DAYOFWEEK(po1.post_date) = 5 
-  and hour(po1.post_date) = 13 
-  and po1.post_type = 'programma'
-  and pm1.meta_key = 'pr_metadata_orig'
-  and pm1.meta_value = ''
-;"
+  qry <- "select distinct po2.post_date as cz_week_start, 
+	               (SELECT 
+                     cast(sum(TIMESTAMPDIFF(HOUR, 
+                                            po1.post_date, 
+                                            str_to_date(pm1.meta_value, '%Y-%m-%d %H:%i:%s')))
+                          as char) as n_hrs
+                  FROM wp_posts po1 
+                     JOIN wp_postmeta pm1 ON pm1.post_id = po1.id
+                     JOIN wp_term_relationships tr1 ON tr1.object_id = po1.id
+                  WHERE po1.post_type = 'programma' 
+                    and po1.post_status = 'publish'
+                    AND tr1.term_taxonomy_id = 5
+                    AND po1.post_date BETWEEN po2.post_date 
+                                          AND date_add(po2.post_date, interval 167 HOUR)
+                    and pm1.meta_key = 'pr_metadata_uitzenddatum_end'
+                 ) as n_hrs
+          from wp_posts po2 
+          where po2.post_date > date_add(current_date(), interval -2 WEEK)
+            and DAYOFWEEK(po2.post_date) = 5 -- (1 = Sunday, 5 = Thursday)
+            and hour(po2.post_date) = 13 
+            and po2.post_type = 'programma';"
   
-  latest_post <- dbGetQuery(wp_conn, qry) |> ymd_hms(quiet = T) 
+  cz_weeks <- dbGetQuery(wp_conn, qry)
   dbDisconnect(wp_conn)
   
-  start_of_week <- latest_post + days(7)
+  cz_weeks.1 <- cz_weeks |> mutate(n_hrs = parse_integer(n_hrs),
+                                   cz_week_start = ymd_hms(cz_week_start, quiet = T)) 
+  cz_weeks.2 <- cz_weeks.1 |> filter(n_hrs == max(n_hrs)) |> arrange(desc(cz_week_start))
+  start_new_czweek <- cz_weeks.2$cz_week_start[1] + days(7)
   tmp_format <- stamp("1969-07-20", orders = "%Y-%m-%d", quiet = T)
-  tmp_format(start_of_week)
+  tmp_format(start_of_next_week)
 }
