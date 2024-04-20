@@ -4,13 +4,14 @@ source("src/wp_gidsweek_functions.R")
 config <- read_yaml("config.yaml")
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
-flog.info("= = = = = WP-Gidsweek (script version 2024-04-19 20:38) = = = = = = = = = =", 
+flog.info("= = = = = WP-Gidsweek (script version 2024-04-20 13:55) = = = = = = = = = =", 
           name = "wpgidsweeklog")
  
 # cz-week's 168 hours comprise 8 weekdays, not 7 (Thursday AM and PM)
 # but to the schedule-template both Thursdays are the same, as the
 # template is undated.
 # Both Thursday parts will separate when the schedule gets 'calendarized'
+# current_run_start <- ymd("2024-05-16")
 current_run_start <- ymd(start_new_czweek_universe(), quiet = T)
 current_run_stop <- current_run_start + days(7)
 log_date <- format(current_run_start, "%e %B %Y") |> str_trim()

@@ -144,45 +144,51 @@ get_wp_conn <- function(pm_db_type = "prd") {
   return(grh_conn)
 }
 
-
+# start_new_czweek_universe <- function() {
+# 
+#   wp_conn <- get_wp_conn()
+#   
+#   if (typeof(wp_conn) != "S4") {
+#     stop("db-connection failed")
+#   }
+# 
+#   qry <- "select distinct po2.post_date as cz_week_start, 
+# 	               (SELECT 
+#                      cast(sum(TIMESTAMPDIFF(HOUR, 
+#                                             po1.post_date, 
+#                                             str_to_date(pm1.meta_value, '%Y-%m-%d %H:%i:%s')))
+#                           as char) as n_hrs
+#                   FROM wp_posts po1 
+#                      JOIN wp_postmeta pm1 ON pm1.post_id = po1.id
+#                      JOIN wp_term_relationships tr1 ON tr1.object_id = po1.id
+#                   WHERE po1.post_type = 'programma' 
+#                     and po1.post_status = 'publish'
+#                     AND tr1.term_taxonomy_id = 5
+#                     AND po1.post_date BETWEEN po2.post_date 
+#                                           AND date_add(po2.post_date, interval 167 HOUR)
+#                     and pm1.meta_key = 'pr_metadata_uitzenddatum_end'
+#                  ) as n_hrs
+#           from wp_posts po2 
+#           where po2.post_date > date_add(current_date(), interval -2 WEEK)
+#             and DAYOFWEEK(po2.post_date) = 5 -- (1 = Sunday, 5 = Thursday)
+#             and hour(po2.post_date) = 13 
+#             and po2.post_type = 'programma';"
+#   
+#   cz_weeks <- dbGetQuery(wp_conn, qry)
+#   dbDisconnect(wp_conn)
+#   
+#   cz_weeks.1 <- cz_weeks |> mutate(n_hrs = parse_integer(n_hrs),
+#                                    cz_week_start = ymd_hms(cz_week_start, quiet = T)) 
+#   cz_weeks.2 <- cz_weeks.1 |> filter(n_hrs == max(n_hrs)) |> arrange(desc(cz_week_start))
+#   start_new_czweek <- cz_weeks.2$cz_week_start[1] + days(7)
+#   tmp_format <- stamp("1969-07-20", orders = "%Y-%m-%d", quiet = T)
+#   tmp_format(start_of_next_week)
+# }
 
 start_new_czweek_universe <- function() {
-
-  wp_conn <- get_wp_conn()
-  
-  if (typeof(wp_conn) != "S4") {
-    stop("db-connection failed")
-  }
-
-  qry <- "select distinct po2.post_date as cz_week_start, 
-	               (SELECT 
-                     cast(sum(TIMESTAMPDIFF(HOUR, 
-                                            po1.post_date, 
-                                            str_to_date(pm1.meta_value, '%Y-%m-%d %H:%i:%s')))
-                          as char) as n_hrs
-                  FROM wp_posts po1 
-                     JOIN wp_postmeta pm1 ON pm1.post_id = po1.id
-                     JOIN wp_term_relationships tr1 ON tr1.object_id = po1.id
-                  WHERE po1.post_type = 'programma' 
-                    and po1.post_status = 'publish'
-                    AND tr1.term_taxonomy_id = 5
-                    AND po1.post_date BETWEEN po2.post_date 
-                                          AND date_add(po2.post_date, interval 167 HOUR)
-                    and pm1.meta_key = 'pr_metadata_uitzenddatum_end'
-                 ) as n_hrs
-          from wp_posts po2 
-          where po2.post_date > date_add(current_date(), interval -2 WEEK)
-            and DAYOFWEEK(po2.post_date) = 5 -- (1 = Sunday, 5 = Thursday)
-            and hour(po2.post_date) = 13 
-            and po2.post_type = 'programma';"
-  
-  cz_weeks <- dbGetQuery(wp_conn, qry)
-  dbDisconnect(wp_conn)
-  
-  cz_weeks.1 <- cz_weeks |> mutate(n_hrs = parse_integer(n_hrs),
-                                   cz_week_start = ymd_hms(cz_week_start, quiet = T)) 
-  cz_weeks.2 <- cz_weeks.1 |> filter(n_hrs == max(n_hrs)) |> arrange(desc(cz_week_start))
-  start_new_czweek <- cz_weeks.2$cz_week_start[1] + days(7)
-  tmp_format <- stamp("1969-07-20", orders = "%Y-%m-%d", quiet = T)
-  tmp_format(start_of_next_week)
+  qfns <- dir_ls(path = "C:/cz_salsa/gidsweek_uploaden/", 
+                 type = "file",
+                 regexp = "CZ_gidsweek_\\d{4}.*[.]json$") |> sort(decreasing = T)
+  latest_upload <- str_extract(qfns[1], pattern = "\\d{4}_\\d{2}_\\d{2}") |> ymd()
+  as.character(latest_upload + days(7))
 }
