@@ -1,11 +1,12 @@
 pacman::p_load(dplyr, tidyr, lubridate, magrittr, stringr, fs, keyring,
-               RMySQL, yaml, purrr, futile.logger, jsonlite, readr)
+               RMySQL, yaml, purrr, futile.logger, jsonlite, readr, conflicted)
+
+conflicts_prefer(dplyr::lag, dplyr::lead, dplyr::filter, lubridate::minutes, .quiet = T)
+
 source("src/wp_gidsweek_functions.R")
-config <- read_yaml("config.yaml")
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
-flog.info("= = = = = WP-Gidsweek (script version 2024-04-20 13:55) = = = = = = = = = =", 
-          name = "wpgidsweeklog")
+flog.info("= = = = = WP-Gidsweek (dev-branch) = = = = = = = = = =", name = "wpgidsweeklog")
  
 # cz-week's 168 hours comprise 8 weekdays, not 7 (Thursday AM and PM)
 # but to the schedule-template both Thursdays are the same, as the
@@ -15,9 +16,7 @@ flog.info("= = = = = WP-Gidsweek (script version 2024-04-20 13:55) = = = = = = =
 current_run_start <- ymd(start_new_czweek_universe(), quiet = T)
 current_run_stop <- current_run_start + days(7)
 log_date <- format(current_run_start, "%e %B %Y") |> str_trim()
-log_msg <- sprintf("Dit wordt de Gidsweek voor Universe Live vanaf donderdag %s, 13:00",
-                   log_date)
-flog.info(log_msg, name = "wpgidsweeklog")
+flog.info(sprintf("CZ-gidsweek vanaf donderdag %s, 13:00", log_date), name = "wpgidsweeklog")
 
 source("src/get_google_czdata.R")
 flog.info("Google-data ingelezen", name = "wpgidsweeklog")
@@ -216,7 +215,7 @@ suppressWarnings(
 )
 
 # + join the lot ----
-for (seg1 in 1:1) { # make break-able segment
+repeat { # main control loop
 
   #+... but test for missing info's first! ------------------------------------
   na_infos <- cz_week_titles %>% 
@@ -241,9 +240,9 @@ for (seg1 in 1:1) { # make break-able segment
   write_rds(x = nipperstudio_week, file = "C:/cz_salsa/cz_exchange/nipperstudio_week.RDS")
   
   broadcasts.I <- cz_slot_dates %>% 
-    inner_join(cz_week_titles) %>% 
-    inner_join(cz_week_sizes) %>% 
-    left_join(cz_week_repeats) %>% 
+    inner_join(cz_week_titles, by = join_by(cz_slot_pfx)) %>% 
+    inner_join(cz_week_sizes, by = join_by(cz_slot_pfx)) %>% 
+    left_join(cz_week_repeats, by = join_by(cz_slot_pfx)) %>% 
     inner_join(tbl_wpgidsinfo, by = c("cz_slot_value" = "key_modelrooster")) %>% 
     left_join(tbl_wpgidsinfo_nl_en, by = c("productie_taak" = "item_NL")) %>% 
     rename(productie_taak_EN = item_EN) %>% 
