@@ -108,23 +108,23 @@ start_of_week_pls <- function(arg_ts = now(tz = "Europe/Amsterdam")) {
   tmp_format(arg_ts + hours(13))
 }
 
-get_wp_conn <- function(pm_db_type = "prd") {
+get_wp_conn <- function() {
   
   # sqlstmt <- "show variables like 'character_set_client'"
   # result <- dbGetQuery(conn = wp_conn, statement = sqlstmt)
   
-  if (pm_db_type == "prd") {
-    db_host <- key_get(service = paste0("sql-wp", pm_db_type, "_host"))
-    db_user <- key_get(service = paste0("sql-wp", pm_db_type, "_user"))
-    db_password <- key_get(service = paste0("sql-wp", pm_db_type, "_pwd"))
-    db_name <- key_get(service = paste0("sql-wp", pm_db_type, "_db"))
-  } else {
-    woj_gids_creds_dev <- read_rds(config$db_dev_creds)
-    db_host <- woj_gids_creds_dev$db_host
-    db_user <- woj_gids_creds_dev$db_user
-    db_password <- woj_gids_creds_dev$db_password
-    db_name <- woj_gids_creds_dev$db_name
-  }
+  # if (pm_db_type == "prd") {
+  #   db_host <- key_get(service = paste0("sql-wp", pm_db_type, "_host"))
+  #   db_user <- key_get(service = paste0("sql-wp", pm_db_type, "_user"))
+  #   db_password <- key_get(service = paste0("sql-wp", pm_db_type, "_pwd"))
+  #   db_name <- key_get(service = paste0("sql-wp", pm_db_type, "_db"))
+  # } else {
+  #   woj_gids_creds_dev <- read_rds(config$db_dev_creds)
+  #   db_host <- woj_gids_creds_dev$db_host
+  #   db_user <- woj_gids_creds_dev$db_user
+  #   db_password <- woj_gids_creds_dev$db_password
+  #   db_name <- woj_gids_creds_dev$db_name
+  # }
   
   db_port <- 3306
   # flog.appender(appender.file("/Users/nipper/Logs/nipper.log"), name = "nipperlog")
