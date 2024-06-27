@@ -1,6 +1,5 @@
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Configuratiebestand voor P1 - Gidsweek voor de website ("json upload")
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+wpdb_env: prd
+
 giva.rds.dir: "C:/Users/nipper/cz_rds_store/branches/cz_gdrive/"
 giva.output.dir: "C:/cz_salsa/gidsweek_uploaden/"
 
@@ -15,3 +14,10 @@ url_nipper_express:     "10HxPg0CP1XuWGWqCYHyvQhN8UoHu2eYXPXyp0fCkf24"
 cz_rds_store: "C:/Users/nipper/cz_rds_store/branches/cz_gdrive/"
 
 modelrooster_versie: "20230105"
+
+db_dev_creds: C:/Users/nipper/cz_rds_store/branches/cz_gdrive/woj_gids_creds_dev.RDS
+wp_endpoint: https://wpdev3.concertzender.nl/wp-admin/admin-ajax.php
+email_from: cz.teamservice@gmail.com
+email_to_A: lcavdakker@gmail.com
+email_to_B: sem@concertzender.nl
+email_auth_path: cz-studiomails.json

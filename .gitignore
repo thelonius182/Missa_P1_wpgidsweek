@@ -36,3 +36,6 @@ json_t2.json
 gidsteksten_20191219.json
 .Rprofile
 .secrets
+config_dev.yaml
+config_prd.yaml
+cz-studiomails.json
