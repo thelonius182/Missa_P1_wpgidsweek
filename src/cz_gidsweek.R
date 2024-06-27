@@ -3,7 +3,7 @@ pacman::p_load(dplyr, tidyr, lubridate, magrittr, stringr, fs, keyring,
 
 conflicts_prefer(dplyr::lag, dplyr::lead, dplyr::filter, lubridate::minutes, .quiet = T)
 
-source("src/wp_gidsweek_functions.R")
+source("src/cz_gwk_functions.R")
 
 flog.appender(appender.file("/Users/nipper/Logs/wpgidsweek.log"), name = "wpgidsweeklog")
 flog.info("= = = = = WP-Gidsweek (dev-branch) = = = = = = = = = =", name = "wpgidsweeklog")
