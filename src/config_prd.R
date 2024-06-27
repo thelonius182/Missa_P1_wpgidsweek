@@ -1,4 +1,4 @@
-config <- readr::read_yaml("config_prd.yaml")
+config <- yaml::read_yaml("config_prd.yaml")
 
 db_host <- keyring::key_get(service = paste0("sql-wp", pm_db_type, "_host"))
 db_user <- keyring::key_get(service = paste0("sql-wp", pm_db_type, "_user"))
